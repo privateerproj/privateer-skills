@@ -22,7 +22,7 @@ the SDK you have installed, the SDK wins; say so in the report.
 References, loaded on demand:
 
 - `references/plugin-anatomy.md` — generated tree, `main.go` wiring, config,
-  run modes, exit codes, known template lag.
+  run modes, exit codes, fixes for older scaffolds.
 - `references/steps.md` — step signature, result semantics, chain ordering,
   the halt rule, testing.
 - `references/loader.md` — payload and DataLoader conventions.
@@ -59,11 +59,11 @@ never run `generate-plugin` again: it overwrites every hand-edited file.
    `generate-plugin` exits non-zero on template failure since pvtr 0.20.3, but
    still run the build; a scaffold that does not compile is not a starting point.
 
-2. **Wire `main.go`** per `references/plugin-anatomy.md`: fix the
-   `NewPluginCommands` argument order, add a target builder, and register
-   steps with `pluginkit.AddEvaluationSuiteTypedForAllCatalogs` and a
-   plugin-local `TypedStep` type. Set `Publisher` and `License` when the plugin
-   will be published.
+2. **Wire `main.go`** per `references/plugin-anatomy.md`: add a target
+   builder, and set `Publisher` and `License` when the plugin will be
+   published. The scaffold already registers a plugin-local `TypedStep` map
+   through `pluginkit.AddEvaluationSuiteTyped`; an older scaffold (one with
+   `VerifyPayload`) needs the fixes listed under "Older scaffolds".
 
 3. **Write the loader** per `references/loader.md`. One `data.Payload`, one
    `data.Loader`. All I/O lives here.

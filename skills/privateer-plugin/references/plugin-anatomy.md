@@ -14,8 +14,8 @@ go-gemara v0.10.0.
     data_collection.go             # Payload + Loader
     catalogs/catalog_<id>_<ver>.yaml  # the catalog, embedded at build time
   evaluation_plans/
-    evaluation_plans.go            # Suite_<id>: map[requirement id] -> step chain
-    reusable_steps/steps.go        # VerifyPayload, NotImplemented
+    evaluation_plans.go            # TypedStep, and Suite_<id>: map[requirement id] -> step chain
+    reusable_steps/steps.go        # NotImplemented
   example-config.yml               # copy to config.yml to run
   Makefile                         # build, test, vet, tidy
   .github/, .goreleaser.yaml       # CI and release, copied verbatim from the templates
@@ -26,16 +26,15 @@ Every requirement id in the catalog appears in `Suite_<id>` bound to
 
 ## `main.go` wiring
 
-The scaffold uses untyped `gemara.AssessmentStep` and a `VerifyPayload` cast in
-every step. The current idiom is typed steps registered through the SDK, which
-does the cast once and keeps each step's function name in the results. Rewrite
-the scaffold's registration to this shape:
+The scaffold emits typed steps registered through the SDK, which asserts the
+payload type once and keeps each step's function name in the results. If the
+plugin you are handed predates that (an untyped `gemara.AssessmentStep` map and
+a `VerifyPayload` cast in every step), rewrite its registration to this shape:
 
 ```go
-// evaluation_plans/typed_step.go
+// evaluation_plans/evaluation_plans.go
 type TypedStep func(data.Payload) (gemara.Result, string, gemara.ConfidenceLevel)
 
-// evaluation_plans/evaluation_plans.go
 var Suite = map[string][]TypedStep{
     "ID.C01.TR01": {reusable_steps.HasThing, family.ThingIsConfiguredRight},
 }
@@ -75,14 +74,16 @@ Rules that follow from the SDK:
   refuses to run when one is missing, so a step never sees a half-built payload.
 - Exit with `shared.InternalError` on wiring failures, not a bare `1`.
 
-### Known template lag (as of plugin-generator-templates at SDK v1.33.0)
+### Older scaffolds
 
-- The scaffold calls `NewPluginCommands(PluginName, Version, VersionPostfix, GitCommitHash, &orchestrator)`.
-  The SDK signature is `(pluginName, buildVersion, buildGitCommitHash, buildTime, orchestrator)`.
-  It compiles because every argument is a string, but the commit hash and build
-  time land in the wrong fields. Fix the call order as shown above.
-- The scaffold registers an untyped map with `AddEvaluationSuite`. Convert to
-  typed registration before writing steps, so no step needs a payload guard.
+Templates released before the typed-step change (SDK pin v1.33.0 and earlier,
+any scaffold containing `VerifyPayload`) have two defects to fix by hand:
+
+- `NewPluginCommands(PluginName, Version, VersionPostfix, GitCommitHash, &orchestrator)`
+  puts the commit hash and build time in the wrong fields. The SDK signature
+  is `(pluginName, buildVersion, buildGitCommitHash, buildTime, orchestrator)`.
+- The untyped map with `AddEvaluationSuite`. Convert to typed registration
+  before writing steps, so no step needs a payload guard.
 
 ## Running
 
