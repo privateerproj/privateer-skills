@@ -3,7 +3,7 @@
 A step is a pure function of the payload. It observes, it does not fetch.
 
 ```go
-// One per plugin, in evaluation_plans/typed_step.go.
+// One per plugin; the scaffold declares it in evaluation_plans/evaluation_plans.go.
 type TypedStep func(data.Payload) (gemara.Result, string, gemara.ConfidenceLevel)
 ```
 
@@ -58,8 +58,7 @@ each step.
 
 ```text
 evaluation_plans/
-  typed_step.go                # TypedStep + AllSteps() when merging several maps
-  evaluation_plans.go          # the id -> chain map
+  evaluation_plans.go          # TypedStep and the id -> chain map (split out AllSteps() when merging several maps)
   reusable_steps/steps.go      # cross-cutting: NotImplemented, Retired, IsCodeRepo, HasSecurityInsightsFile
   <family>/steps.go            # one package per control family (access_control, legal, ...)
   <family>/steps_test.go

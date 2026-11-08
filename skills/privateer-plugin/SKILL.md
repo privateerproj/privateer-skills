@@ -31,8 +31,8 @@ References, loaded on demand:
 ## Preflight
 
 ```sh
-pvtr version            # need >= 0.23.0; else: brew install privateerproj/tap/pvtr
-go version              # need the Go line in the generated go.mod (1.26+)
+pvtr version            # need >= 0.24.1 (forwards run flags to plugins); else: brew install privateerproj/tap/pvtr
+go version              # need the Go line in the generated go.mod (1.27.3); Go fetches it unless GOTOOLCHAIN=local
 ```
 
 A plugin needs a Gemara Layer 2 `ControlCatalog` (YAML or JSON, file or URL).
@@ -90,7 +90,7 @@ never run `generate-plugin` again: it overwrites every hand-edited file.
 7. **Run it.** First the plugin alone, then under `pvtr`:
 
    ```sh
-   cp example-config.yml config.yml      # fill vars for a real target
+   cp example-config.yml config.yml      # fill vars for a real target; keep applicability non-empty
    go build -o <bin> . && ./<bin> debug --target <name> -l debug
    (cd <skill-dir>/scripts && go run . run-summary --path evaluation_results/<name>/<name>.yaml)
    ```

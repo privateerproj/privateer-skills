@@ -1,8 +1,9 @@
 # Plugin anatomy
 
 What `pvtr generate-plugin` emits, how `main.go` should be wired, and how a
-plugin is run. Verified against pvtr 0.23.0, privateer-sdk v1.33.x, and
-go-gemara v0.10.0.
+plugin is run. Verified against pvtr 0.24.1, privateer-sdk v1.34.1, and
+go-gemara v0.11.0. `generate-plugin` clones the templates repo's `main` on
+every run, so the scaffold changes without a pvtr release.
 
 ## Generated tree
 
@@ -17,7 +18,8 @@ go-gemara v0.10.0.
     evaluation_plans.go            # TypedStep, and Suite_<id>: map[requirement id] -> step chain
     reusable_steps/steps.go        # NotImplemented
   example-config.yml               # copy to config.yml to run
-  Makefile                         # build, test, vet, tidy
+  Makefile                         # build, test, vet, tidy; `make bin` moves the binary to ~/.privateer/bin
+  README.md, TESTING.md
   .github/, .goreleaser.yaml       # CI and release, copied verbatim from the templates
 ```
 
@@ -111,6 +113,12 @@ services:
       owner: example
       repo: thing
 ```
+
+`applicability` must be non-empty, and each requirement in the catalog must
+declare an applicability that matches it. A requirement with none is reported
+`Unknown` with "expected all AssessmentLog fields to have a value" and its
+steps never run. The scaffold's `example-config.yml` lists every category the
+catalog declares.
 
 Results land in `<write-directory>/<target>/<target>.<output>`.
 
