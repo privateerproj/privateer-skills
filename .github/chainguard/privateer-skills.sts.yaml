@@ -1,0 +1,13 @@
+issuer: https://token.actions.githubusercontent.com
+# Immutable OIDC subject format (repo created after 2026-07-15): privateerproj = 116728460, privateer-skills = 1451001353
+# Issue the scan token only to the workflow running on main, never to branches or PRs
+subject: repo:privateerproj@116728460/privateer-skills@1451001353:ref:refs/heads/main
+claim_pattern:
+  job_workflow_ref: "^privateerproj/privateer-skills/.github/workflows/osps-security-assessment.yml@refs/heads/main$"
+
+permissions:
+  contents: read
+  statuses: read
+  deployments: read
+  security_events: read
+  administration: read

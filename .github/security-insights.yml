@@ -57,3 +57,16 @@ repository:
           adhoc: true
           ci: false
           release: false
+      - name: OSPS Baseline Scanner
+        type: other
+        rulesets:
+          - osps-baseline-2026-08
+        integration:
+          adhoc: false
+          ci: true
+          release: false
+        results:
+          ci:
+            name: OSPS Baseline evaluation
+            predicate-uri: https://github.com/revanite-io/osps-baseline-action
+            location: https://github.com/privateerproj/privateer-skills/actions/workflows/osps-security-assessment.yml
