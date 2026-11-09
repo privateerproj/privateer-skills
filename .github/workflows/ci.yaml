@@ -1,0 +1,95 @@
+name: ci
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+  workflow_dispatch:
+  # Weekly, so the skill fails loudly when the templates or SDK move under it.
+  schedule:
+    - cron: "17 6 * * 1"
+
+permissions:
+  contents: read
+
+jobs:
+  scripts:
+    name: scripts vet and test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version-file: skills/privateer-plugin/scripts/go.mod
+      - name: vet, test, gofmt
+        working-directory: skills/privateer-plugin/scripts
+        run: |
+          go vet ./...
+          go test ./...
+          test -z "$(gofmt -l .)"
+
+  markdown:
+    name: markdown lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: DavidAnson/markdownlint-cli2-action@696eb3f2509270d7b882d2aa68347bc676e7af34 # v25.0.0
+        with:
+          globs: "**/*.md"
+
+  # Follows the skill against what users actually get: pvtr from its latest
+  # release and the scaffold from plugin-generator-templates main. Uses the
+  # skill's own smoke-test catalog, so that doc is checked too.
+  smoke:
+    name: skill smoke test
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-go@b7ad1dad31e06c5925ef5d2fc7ad053ef454303e # v7.0.0
+        with:
+          go-version: stable
+
+      - name: install pvtr
+        run: go install github.com/privateerproj/pvtr@latest
+
+      - name: extract the smoke-test catalog from plugin-anatomy.md
+        run: |
+          awk '/^## Minimal smoke-test catalog/{f=1} f&&/^```yaml/{p=1;next} p&&/^```/{exit} p' \
+            skills/privateer-plugin/references/plugin-anatomy.md > "$RUNNER_TEMP/catalog.yaml"
+          test -s "$RUNNER_TEMP/catalog.yaml"
+
+      # Workflow steps 1, 6 and 7 of SKILL.md.
+      - name: scaffold, build, sync, debug, run-summary
+        env:
+          SCRIPTS: ${{ github.workspace }}/skills/privateer-plugin/scripts
+        run: |
+          cd "$RUNNER_TEMP"
+          pvtr generate-plugin --source-path catalog.yaml --service-name smokeplugin \
+            --organization smokeorg --output-dir plugin
+          cd plugin
+          go mod tidy && go build ./... && go vet ./...
+          test -z "$(gofmt -l .)"
+          (cd "$SCRIPTS" && go run . sync --catalog "$RUNNER_TEMP/plugin/data/catalogs" \
+            --plugin "$RUNNER_TEMP/plugin" --strict)
+          go build -o smokeplugin .
+          cp example-config.yml config.yml
+          ./smokeplugin debug --target myService1
+          log="$PWD/evaluation_results/myService1/myService1.yaml"
+          (cd "$SCRIPTS" && go run . run-summary --path "$log") > summary.json
+          cat summary.json
+          # The scaffold's placeholder step must have run for every requirement.
+          jq -e '.unknown_ids == [] and .totals == {"Not Run": 1}
+                 and ([.suites[].by_ar[].steps_executed] | all(. >= 1))' summary.json
+          # The pvtr half of step 7.
+          rm -rf evaluation_results
+          pvtr install --local ./smokeplugin
+          pvtr run
+          # pvtr run lowercases service names (viper keys); debug keeps --target as typed.
+          test -s evaluation_results/myservice1/myservice1.yaml

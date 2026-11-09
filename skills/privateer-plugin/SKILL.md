@@ -125,7 +125,9 @@ typing it (see "Generate, then copy").
    that declares grc.store catalogs with `AddCatalogs` must set `Publisher`
    first, or `pvtr run` will not find them. Read the
    `pvtr run` exit code with the table in `references/plugin-anatomy.md`; `1`
-   means assessments failed, which is data, not a broken plugin.
+   means assessments failed, which is data, not a broken plugin. `pvtr run`
+   writes to a lowercased `evaluation_results/<name>/` path; see
+   `references/plugin-anatomy.md`.
 
 8. **Done** when all of these hold. Report the EvaluationLog path and the
    `totals` map from `run-summary`; on any miss, paste the failing JSON.

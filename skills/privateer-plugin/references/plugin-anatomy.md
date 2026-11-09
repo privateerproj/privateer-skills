@@ -101,7 +101,10 @@ declare an applicability that matches it. A requirement with none is reported
 steps never run. The scaffold's `example-config.yml` lists every category the
 catalog declares.
 
-Results land in `<write-directory>/<target>/<target>.<output>`.
+Results land in `<write-directory>/<target>/<target>.<output>`. Under `pvtr run`
+the target name is lowercased (`myService1` becomes `myservice1`), because
+viper lowercases config keys; `debug` keeps `--target` as typed. On a
+case-sensitive filesystem, read the `pvtr run` log from the lowercase path.
 
 ### Exit codes (`privateer-sdk/shared/exitcodes.go`)
 
