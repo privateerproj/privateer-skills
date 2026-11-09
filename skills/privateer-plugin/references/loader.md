@@ -16,7 +16,7 @@ and writes it into the EvaluationLog under `payload` when the user asks for it.
 // data/data_collection.go (or data/payload.go as it grows)
 type Payload struct {
     *RestData                          // pointer fields keep the by-value payload cheap to copy
-    *pluginkit.APICallCounter          // enables `pvtr run --benchmark` API counting
+    *pluginkit.APICallCounter          // enables API counting in `pvtr benchmark`
     Evidence  *gemara.EvidenceCollector
     Config    *config.Config
     Owner     string                   // resolved from cfg once, here, not in steps
@@ -75,7 +75,7 @@ Rules:
 - **Independent fetches run concurrently.** `errgroup` over the sources, then
   assemble; a single slow API should not serialize the run.
 - **Count API calls.** Wrap the HTTP client with `pluginkit.APICallCounter` so
-  `pvtr run --benchmark` can report cost per suite.
+  `pvtr benchmark <plugin-binary> --target <name>` can report cost per suite.
 - **Declare required vars in `main.go`**, not by checking them in the loader.
   The SDK refuses to run when one is missing, with a clearer message.
 
