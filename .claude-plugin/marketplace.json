@@ -1,0 +1,18 @@
+{
+  "name": "privateer",
+  "description": "Privateer agent skills for Claude Code",
+  "owner": {
+    "name": "Privateer Project",
+    "url": "https://github.com/privateerproj"
+  },
+  "plugins": [
+    {
+      "name": "privateer",
+      "description": "Agent skills for building and extending Privateer plugins that evaluate Gemara control catalogs.",
+      "source": "./",
+      "category": "security",
+      "homepage": "https://privateerproj.com",
+      "license": "Apache-2.0"
+    }
+  ]
+}

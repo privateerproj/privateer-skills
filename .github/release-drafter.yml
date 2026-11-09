@@ -1,0 +1,100 @@
+---
+name-template: "v$RESOLVED_VERSION"
+tag-template: "v$RESOLVED_VERSION"
+template: |
+  # Changelog
+  $CHANGES
+
+  See details of [all code changes](https://github.com/$OWNER/$REPOSITORY/compare/$PREVIOUS_TAG...v$RESOLVED_VERSION) since previous release
+
+categories:
+  - title: "💥 Breaking Changes"
+    when:
+      labels:
+        - "breaking"
+  # exclusive: a security fix lists here only, not again under a later
+  # category such as Bug Fixes. It can still also appear under Breaking.
+  - title: "🔒 Security"
+    exclusive: true
+    when:
+      labels:
+        - "security"
+  - title: "🚀 Features"
+    when:
+      labels:
+        - "feature"
+        - "enhancement"
+  - title: "🐛 Bug Fixes"
+    when:
+      labels:
+        - "fix"
+        - "bugfix"
+        - "bug"
+  - title: "🧰 Maintenance"
+    when:
+      labels:
+        - "infrastructure"
+        - "automation"
+        - "documentation"
+        - "dependencies"
+        - "maintenance"
+        - "revert"
+  - title: "🏎 Performance"
+    when:
+      label: "performance"
+  # Version resolution: the highest matching increment wins.
+  # Dependabot applies "major", "minor", and "patch" labels to its PRs when
+  # those labels exist in the repo. A dependency's semver bump says nothing
+  # about this project's API, so only human-applied labels drive the resolver.
+  - type: "version-resolver"
+    semver-increment: "major"
+    when:
+      labels:
+        - "breaking"
+  - type: "version-resolver"
+    semver-increment: "minor"
+    when:
+      labels:
+        - "enhancement"
+        - "feature"
+  - type: "version-resolver"
+    semver-increment: "patch"
+    when:
+      labels:
+        - "documentation"
+        - "fix"
+        - "maintenance"
+  # Fallback when no other version-resolver matches (was default: patch)
+  - type: "version-resolver"
+    semver-increment: "patch"
+change-template: "- $TITLE @$AUTHOR (#$NUMBER)"
+autolabeler:
+  - label: "automation"
+    title:
+      - "/^(build|ci|perf|refactor|test).*/i"
+  - label: "enhancement"
+    title:
+      - "/^(style).*/i"
+  - label: "documentation"
+    title:
+      - "/^(docs).*/i"
+  - label: "feature"
+    title:
+      - "/^(feat).*/i"
+  - label: "fix"
+    title:
+      - "/^(fix).*/i"
+  - label: "infrastructure"
+    title:
+      - "/^(infrastructure).*/i"
+  - label: "maintenance"
+    title:
+      - "/^(chore|maintenance).*/i"
+  - label: "revert"
+    title:
+      - "/^(revert).*/i"
+  # Any change to the installable plugin is released on merge
+  - label: "release"
+    files:
+      - "skills/**"
+      - ".claude-plugin/**"

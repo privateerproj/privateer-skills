@@ -12,9 +12,27 @@ others).
 
 ## Install
 
+### Claude Code plugin
+
+Add this repository as a plugin marketplace, then install the `privateer`
+plugin:
+
+```text
+/plugin marketplace add privateerproj/privateer-skills
+/plugin install privateer@privateer
+```
+
+The skill then runs as `/privateer:privateer-plugin`. Each install stays on
+its release until `version` in `.claude-plugin/plugin.json` changes, so commits
+between releases never reach you. Claude Code doesn't auto-update third-party
+marketplaces by default. Turn on auto-update for `privateer` under `/plugin`,
+or run `claude plugin update privateer@privateer`.
+
+### Any agent
+
 Copy or symlink a skill directory into wherever your agent loads skills from.
-For Claude Code, that is `.claude/skills/` in a project or `~/.claude/skills/`
-for every project:
+For Claude Code without the plugin, that is `.claude/skills/` in a project or
+`~/.claude/skills/` for every project:
 
 ```sh
 git clone https://github.com/privateerproj/privateer-skills

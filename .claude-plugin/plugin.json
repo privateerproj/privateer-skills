@@ -1,0 +1,13 @@
+{
+  "name": "privateer",
+  "description": "Agent skills for building and extending Privateer plugins that evaluate Gemara control catalogs.",
+  "version": "0.1.0",
+  "author": {
+    "name": "Privateer Project",
+    "url": "https://github.com/privateerproj"
+  },
+  "homepage": "https://privateerproj.com",
+  "repository": "https://github.com/privateerproj/privateer-skills",
+  "license": "Apache-2.0",
+  "keywords": ["privateer", "pvtr", "gemara", "compliance", "security"]
+}
