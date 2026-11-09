@@ -47,7 +47,7 @@ func main() {
 func usage() {
 	fmt.Fprint(os.Stderr, `usage: go run . <subcommand> [flags]
 
-  sync          --catalog <catalog.yaml> --plugin <plugin-source-dir> [--strict]
+  sync          --catalog <catalog.yaml or data/catalogs dir> --plugin <plugin-source-dir> [--strict]
   run-summary   --path <evaluation-log.yaml>
 `)
 }
@@ -199,7 +199,7 @@ type syncReport struct {
 
 func cmdSync(args []string) int {
 	fs := flag.NewFlagSet("sync", flag.ExitOnError)
-	catPath := fs.String("catalog", "", "path to the catalog YAML")
+	catPath := fs.String("catalog", "", "catalog YAML, or a directory of them (the plugin's data/catalogs)")
 	pluginDir := fs.String("plugin", "", "plugin source directory")
 	strict := fs.Bool("strict", false, "exit 1 on drift")
 	_ = fs.Parse(args)
@@ -219,8 +219,43 @@ func cmdSync(args []string) int {
 	return 0
 }
 
+// catalogLiveIDs accepts one catalog file, or a directory such as a plugin's
+// data/catalogs, whose catalogs are checked together: a multi-catalog plugin
+// registers every catalog's ids, so checking one alone reports the rest as
+// orphans. Duplicates count within a file only; the same id in two catalog
+// versions is expected.
+func catalogLiveIDs(catPath string) (live, dupes []string, err error) {
+	files := []string{catPath}
+	if fi, err := os.Stat(catPath); err == nil && fi.IsDir() {
+		yml, _ := filepath.Glob(filepath.Join(catPath, "*.yml"))
+		files, _ = filepath.Glob(filepath.Join(catPath, "*.yaml"))
+		files = append(files, yml...)
+		if len(files) == 0 {
+			return nil, nil, fmt.Errorf("no *.yaml or *.yml catalogs in %s", catPath)
+		}
+	}
+	seen := map[string]bool{}
+	live, dupes = []string{}, []string{}
+	for _, f := range files {
+		ids, d, err := liveRequirementIDs(f)
+		if err != nil {
+			return nil, nil, err
+		}
+		dupes = append(dupes, d...)
+		for _, id := range ids {
+			if !seen[id] {
+				seen[id] = true
+				live = append(live, id)
+			}
+		}
+	}
+	sort.Strings(live)
+	sort.Strings(dupes)
+	return live, dupes, nil
+}
+
 func buildSync(catPath, pluginDir string) (*syncReport, error) {
-	live, dupes, err := liveRequirementIDs(catPath)
+	live, dupes, err := catalogLiveIDs(catPath)
 	if err != nil {
 		return nil, err
 	}

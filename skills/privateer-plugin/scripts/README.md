@@ -5,7 +5,7 @@ program, two subcommands, JSON on stdout. Inside a Go workspace (a `go.work`
 above this directory), prefix the commands with `GOWORK=off`.
 
 ```sh
-(cd scripts && go run . sync --catalog <catalog.yaml> --plugin <plugin-dir> [--strict])
+(cd scripts && go run . sync --catalog <plugin-dir>/data/catalogs --plugin <plugin-dir> [--strict])
 (cd scripts && go run . run-summary --path <evaluation-log.yaml>)
 ```
 
@@ -14,7 +14,9 @@ above this directory), prefix the commands with `GOWORK=off`.
 Walks the plugin's Go source for composite literals typed `map[string][]<...Step>`
 (the scaffold's `gemara.AssessmentStep` map and a typed plugin's `TypedStep`
 map both match) and diffs their string-literal keys against every
-non-Retired requirement id in the catalog.
+non-Retired requirement id in the catalog. `--catalog` takes one file or a
+directory; a directory's `*.yaml`/`*.yml` catalogs are checked together, since
+a multi-catalog plugin registers all of their ids.
 
 - `missing_in_plugin` — live requirement with no chain. Implement it.
 - `orphaned_in_plugin` — chain whose id the catalog does not have. Usually a

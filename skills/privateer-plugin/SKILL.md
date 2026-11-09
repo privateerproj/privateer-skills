@@ -22,7 +22,7 @@ the SDK you have installed, the SDK wins; say so in the report.
 References, loaded on demand:
 
 - `references/plugin-anatomy.md` — generated tree, `main.go` wiring, config,
-  run modes, exit codes, fixes for older scaffolds.
+  stubs to fill, run modes, exit codes, upgrading older scaffolds.
 - `references/steps.md` — step signature, result semantics, chain ordering,
   the halt rule, testing.
 - `references/loader.md` — payload and DataLoader conventions.
@@ -43,7 +43,9 @@ a different task with its own review needs. A minimal valid catalog is in
 ## Workflow
 
 Steps 1 and 2 are for a new plugin. For an existing plugin, start at step 3 and
-never run `generate-plugin` again: it overwrites every hand-edited file.
+never run `generate-plugin` over it: it overwrites every hand-edited file.
+Anything the generator can write, take from a scratch scaffold instead of
+typing it (see "Generate, then copy").
 
 1. **Scaffold, then prove it compiles.**
 
@@ -59,11 +61,11 @@ never run `generate-plugin` again: it overwrites every hand-edited file.
    `generate-plugin` exits non-zero on template failure since pvtr 0.20.3, but
    still run the build; a scaffold that does not compile is not a starting point.
 
-2. **Wire `main.go`** per `references/plugin-anatomy.md`: add a target
-   builder, and set `Publisher` and `License` when the plugin will be
-   published. The scaffold already registers a plugin-local `TypedStep` map
-   through `pluginkit.AddEvaluationSuiteTyped`; an older scaffold (one with
-   `VerifyPayload`) needs the fixes listed under "Older scaffolds".
+2. **Fill the `main.go` stubs** per `references/plugin-anatomy.md`: the
+   `AddTargetBuilder` body, and `Publisher` and `License` when the plugin will
+   be published. The scaffold already registers a plugin-local `TypedStep` map
+   through `pluginkit.AddEvaluationSuiteTyped`. A scaffold with `VerifyPayload`
+   or without the stubs is older; upgrade it per "Generate, then copy".
 
 3. **Write the loader** per `references/loader.md`. One `data.Payload`, one
    `data.Loader`. All I/O lives here.
@@ -80,12 +82,15 @@ never run `generate-plugin` again: it overwrites every hand-edited file.
 
    ```sh
    (cd <skill-dir>/scripts && go run . sync \
-       --catalog <plugin-dir>/data/catalogs/<catalog>.yaml \
+       --catalog <plugin-dir>/data/catalogs \
        --plugin  <plugin-dir> --strict)
    ```
 
-   `missing_in_plugin` → back to step 4. `orphaned_in_plugin` → ask; an orphan
-   is usually a typo in the id, sometimes a retired control kept for visibility.
+   Pass the directory, not one file: a plugin registers every embedded
+   catalog's ids, so checking one catalog reports the others' ids as orphans.
+   `missing_in_plugin` → take the entries from a scratch scaffold ("Generate,
+   then copy"), then back to step 4. `orphaned_in_plugin` → ask; an orphan is
+   usually a typo in the id, sometimes a retired control kept for visibility.
 
 7. **Run it.** First the plugin alone, then under `pvtr`:
 
@@ -108,6 +113,26 @@ never run `generate-plugin` again: it overwrites every hand-edited file.
    - [ ] `run-summary` shows every live requirement id with `steps_executed >= 1`
          and a result other than `Unknown` or `Not Run`, and `unknown_ids: []`.
    - [ ] `pvtr run` exit code is 0 or 1.
+
+## Generate, then copy
+
+For an existing plugin, run the generator into a scratch directory with the
+plugin's own `--service-name` and `--organization`, then copy pieces out:
+
+```sh
+scratch=$(mktemp -d)
+pvtr generate-plugin --source-path <catalog> --service-name <Service> \
+  --organization <github-org> --output-dir "$scratch"
+```
+
+| Task | Take from `$scratch` |
+| --- | --- |
+| Add a catalog | `data/catalogs/catalog_*.yaml` into the plugin's `data/catalogs/`; the `Suite_<id>` block from `evaluation_plans/evaluation_plans.go`; the `AddEvaluationSuiteTyped` call from `main.go`; the `applicability` list from `example-config.yml` |
+| New catalog version, or `missing_in_plugin` | The catalog file as above; only the missing ids' entries from `Suite_<id>`, merged into the existing map |
+| Upgrade an older scaffold | `diff -r "$scratch" <plugin-dir>`, then port the wiring the plugin lacks; keep its steps, loader and catalogs |
+
+Copy the generated catalog file rather than the source: the generator
+re-serializes it and names it the way the plugin embeds it. Then rerun sync.
 
 ## Guardrails
 

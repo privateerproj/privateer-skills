@@ -28,39 +28,20 @@ Every requirement id in the catalog appears in `Suite_<id>` bound to
 
 ## `main.go` wiring
 
-The scaffold emits typed steps registered through the SDK, which asserts the
-payload type once and keeps each step's function name in the results. If the
-plugin you are handed predates that (an untyped `gemara.AssessmentStep` map and
-a `VerifyPayload` cast in every step), rewrite its registration to this shape:
+The scaffold's `main.go` is the reference; this section does not copy it. It
+registers the typed `Suite_<id>` map through `pluginkit.AddEvaluationSuiteTyped`
+(the SDK asserts the payload type once and keeps each step's function name in
+the results) and leaves three stubs to fill:
 
 ```go
-// evaluation_plans/evaluation_plans.go
-type TypedStep func(data.Payload) (gemara.Result, string, gemara.ConfidenceLevel)
+Publisher: "acme",        // grc.store namespace; required only to publish
+License:   "Apache-2.0",  // SPDX expression; required only to publish
 
-var Suite = map[string][]TypedStep{
-    "ID.C01.TR01": {reusable_steps.HasThing, family.ThingIsConfiguredRight},
-}
-```
-
-```go
-// main.go
-orchestrator := &pluginkit.EvaluationOrchestrator{
-    PluginName:    PluginName,
-    PluginVersion: Version,
-    PluginUri:     "https://github.com/<org>/<repo>",
-    Publisher:     "<grc.store namespace>", // required only to publish
-    License:       "Apache-2.0",            // SPDX expression; required only to publish
-}
-orchestrator.AddLoader(data.Loader)
 orchestrator.AddTargetBuilder(func(c *config.Config) gemara.Resource {
-    // Identify what was evaluated from the config vars, e.g. owner/repo.
+    // Identify what was evaluated, e.g. owner/repo from c.Vars. Empty fields
+    // fall back to the service name, so the unfilled stub is harmless.
     return gemara.Resource{Id: ..., Name: ..., Type: gemara.Software, Uri: ...}
 })
-if err := orchestrator.AddReferenceCatalogs(dataDir, files); err != nil { ... }
-orchestrator.AddRequiredVars(RequiredVars)
-if err := pluginkit.AddEvaluationSuiteTypedForAllCatalogs(orchestrator, nil, evaluation_plans.Suite); err != nil { ... }
-
-runCmd := command.NewPluginCommands(PluginName, Version, GitCommitHash, BuiltAt, orchestrator)
 ```
 
 Rules that follow from the SDK:
@@ -78,14 +59,14 @@ Rules that follow from the SDK:
 
 ### Older scaffolds
 
-Templates released before the typed-step change (SDK pin v1.33.0 and earlier,
-any scaffold containing `VerifyPayload`) have two defects to fix by hand:
-
-- `NewPluginCommands(PluginName, Version, VersionPostfix, GitCommitHash, &orchestrator)`
-  puts the commit hash and build time in the wrong fields. The SDK signature
-  is `(pluginName, buildVersion, buildGitCommitHash, buildTime, orchestrator)`.
-- The untyped map with `AddEvaluationSuite`. Convert to typed registration
-  before writing steps, so no step needs a payload guard.
+A scaffold containing `VerifyPayload`, or without the stubs above, came from
+older templates. Upgrade it by diffing against a scratch scaffold (SKILL.md,
+"Generate, then copy") rather than from a list here. Expect the diff to show
+typed registration in place of `AddEvaluationSuite`, and a
+`NewPluginCommands` call that passed `VersionPostfix` where the SDK takes
+`(pluginName, buildVersion, buildGitCommitHash, buildTime, orchestrator)`.
+Convert to typed registration before writing steps, so no step needs a payload
+guard.
 
 ## Running
 

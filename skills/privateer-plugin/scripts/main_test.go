@@ -94,3 +94,38 @@ evaluation-suites:
 		t.Errorf("by_ar = %v", s.Suites[0].ByAR)
 	}
 }
+
+func TestSyncCatalogDir(t *testing.T) {
+	dir := t.TempDir()
+	cats := filepath.Join(dir, "catalogs")
+	// Two versions sharing A.C01.TR01 (not a duplicate), plus a second catalog.
+	write(t, filepath.Join(cats, "catalog_a_1.yaml"), `
+controls:
+  - id: A.C01
+    assessment-requirements: [{id: A.C01.TR01}]
+`)
+	write(t, filepath.Join(cats, "catalog_a_2.yaml"), `
+controls:
+  - id: A.C01
+    assessment-requirements: [{id: A.C01.TR01}, {id: A.C01.TR02}]
+`)
+	write(t, filepath.Join(cats, "catalog_b_.yml"), `
+controls:
+  - id: B.C01
+    assessment-requirements: [{id: B.C01.TR01}]
+`)
+	write(t, filepath.Join(dir, "plugin", "plans.go"), `package p
+var A = map[string][]TypedStep{"A.C01.TR01": {F}, "A.C01.TR02": {F}}
+var B = map[string][]TypedStep{"B.C01.TR01": {F}}
+`)
+	r, err := buildSync(cats, filepath.Join(dir, "plugin"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !r.Synced {
+		t.Errorf("expected synced, got missing=%v orphaned=%v dupes=%v", r.Missing, r.Orphaned, r.DuplicateIDs)
+	}
+	if _, err := buildSync(filepath.Join(dir, "plugin"), filepath.Join(dir, "plugin")); err == nil {
+		t.Error("expected an error for a directory with no catalogs")
+	}
+}
