@@ -31,7 +31,7 @@ References, loaded on demand:
 ## Preflight
 
 ```sh
-pvtr version            # need >= 0.24.1 (a source build prints "edge"); else: brew install privateerproj/tap/pvtr
+pvtr version            # need >= 0.24.2 (a source build prints "edge"); else: brew install (or upgrade) privateerproj/tap/pvtr
 go version              # need at least the go line in the generated go.mod; Go fetches it unless GOTOOLCHAIN=local
 ```
 
@@ -66,7 +66,13 @@ typing it (see "Generate, then copy").
      --organization <github-org> \
      --output-dir   <plugin-dir>
    cd <plugin-dir> && go mod tidy && go build ./... && go vet ./...
+   go list -m github.com/privateerproj/privateer-sdk   # need >= v1.34.2
    ```
+
+   If that prints an older SDK, raise it before writing code:
+   `go get github.com/privateerproj/privateer-sdk@v1.34.2 && go mod tidy`.
+   Older SDKs write every config var, tokens included, into results produced
+   with `--include-payload`. Never lower a newer pin.
 
    `--service-name` becomes the plugin name, the module path's last element,
    the binary name and the installed `local/<name>`, so use a short lowercase

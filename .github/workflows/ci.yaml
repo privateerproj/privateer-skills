@@ -74,7 +74,14 @@ jobs:
           pvtr generate-plugin --source-path catalog.yaml --service-name smokeplugin \
             --organization smokeorg --output-dir plugin
           cd plugin
-          go mod tidy && go build ./... && go vet ./...
+          go mod tidy
+          # Step 1's SDK floor: raise an older pin, never lower a newer one.
+          v=$(go list -m -f '{{.Version}}' github.com/privateerproj/privateer-sdk)
+          if [ "$(printf '%s\n' v1.34.2 "$v" | sort -V | head -1)" != v1.34.2 ]; then
+            go get github.com/privateerproj/privateer-sdk@v1.34.2 && go mod tidy
+          fi
+          go list -m github.com/privateerproj/privateer-sdk
+          go build ./... && go vet ./...
           test -z "$(gofmt -l .)"
           (cd "$SCRIPTS" && go run . sync --catalog "$RUNNER_TEMP/plugin/data/catalogs" \
             --plugin "$RUNNER_TEMP/plugin" --strict)

@@ -42,9 +42,11 @@ Rules:
 - **Resolve config in the loader.** `cfg.GetString("owner")` once, into a
   field. Steps that reach into `Config` are hard to test and hide dependencies.
 - **Do not embed the loaded struct's secrets.** `--include-payload` writes the
-  payload to the results file. Keep tokens and clients unexported, and drop
-  the scaffold's `Config *config.Config` field once the loader has resolved
-  what steps need: it serializes every config var, a token included.
+  payload to the results file. Keep tokens and clients unexported. SDK
+  v1.34.2 and later never serialize `Config.Vars`, so the scaffold's
+  `Config *config.Config` field no longer leaks config vars; older SDKs wrote
+  every var, a token included. Drop the field anyway once the loader has
+  resolved what steps need (the rule above).
 
 ### Evidence
 

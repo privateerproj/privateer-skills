@@ -1,7 +1,7 @@
 # Plugin anatomy
 
 What `pvtr generate-plugin` emits, how `main.go` should be wired, and how a
-plugin is run. Verified against pvtr 0.24.1, privateer-sdk v1.34.1, and
+plugin is run. Verified against pvtr 0.24.2, privateer-sdk v1.34.2, and
 go-gemara v0.11.0. `generate-plugin` clones the templates repo's `main` on
 every run, so the scaffold changes without a pvtr release.
 
