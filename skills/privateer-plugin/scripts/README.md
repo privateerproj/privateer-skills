@@ -12,8 +12,8 @@ above this directory), prefix the commands with `GOWORK=off`.
 ## sync
 
 Walks the plugin's Go source for composite literals typed `map[string][]<...Step>`
-(the scaffold's `gemara.AssessmentStep` map and a typed plugin's `TypedStep`
-map both match) and diffs their string-literal keys against every
+(the scaffold's `TypedStep` map, and the untyped `gemara.AssessmentStep` map
+of older scaffolds, both match) and diffs their string-literal keys against every
 non-Retired requirement id in the catalog. `--catalog` takes one file or a
 directory; a directory's `*.yaml`/`*.yml` catalogs are checked together, since
 a multi-catalog plugin registers all of their ids.

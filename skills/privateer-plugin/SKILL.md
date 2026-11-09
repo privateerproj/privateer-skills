@@ -32,7 +32,7 @@ References, loaded on demand:
 
 ```sh
 pvtr version            # need >= 0.24.1 (a source build prints "edge"); else: brew install privateerproj/tap/pvtr
-go version              # need the Go line in the generated go.mod (1.27.3); Go fetches it unless GOTOOLCHAIN=local
+go version              # need at least the go line in the generated go.mod; Go fetches it unless GOTOOLCHAIN=local
 ```
 
 A plugin needs a Gemara Layer 2 `ControlCatalog` (YAML or JSON, file or URL).
@@ -103,13 +103,14 @@ typing it (see "Generate, then copy").
 7. **Run it.** First the plugin alone, then under `pvtr`:
 
    ```sh
-   cp example-config.yml config.yml      # fill vars for a real target; keep applicability non-empty
+   cp example-config.yml config.yml      # replace the myvar placeholders with the vars your loader reads; keep applicability non-empty
    go build -o <bin> . && ./<bin> debug --target <name> -l debug
    log="$PWD/evaluation_results/<name>/<name>.yaml"   # absolute: the next line cds away
    (cd <skill-dir>/scripts && go run . run-summary --path "$log")
    ```
 
-   `debug` exits 0 whatever the results; only the log counts. Then register the
+   `<name>` is the service key under `services:` in `config.yml`, not the
+   plugin name. `debug` exits 0 whatever the results; only the log counts. Then register the
    binary with pvtr and run it the way users will:
 
    ```sh
@@ -119,7 +120,10 @@ typing it (see "Generate, then copy").
 
    Copying the binary into `~/.privateer/bin` is not enough; pvtr resolves
    `plugin:` through the manifest. With `Publisher` empty, the install prints
-   a long "declares no grc.store Publisher" warning and still exits 0. Read the
+   a long "declares no grc.store Publisher" warning, skips catalog install, and
+   exits 0. That is harmless for embedded catalogs (the scaffold); a plugin
+   that declares grc.store catalogs with `AddCatalogs` must set `Publisher`
+   first, or `pvtr run` will not find them. Read the
    `pvtr run` exit code with the table in `references/plugin-anatomy.md`; `1`
    means assessments failed, which is data, not a broken plugin.
 

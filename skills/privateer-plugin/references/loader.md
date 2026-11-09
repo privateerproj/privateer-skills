@@ -17,8 +17,7 @@ and writes it into the EvaluationLog under `payload` when the user asks for it.
 type Payload struct {
     *RestData                          // pointer fields keep the by-value payload cheap to copy
     *pluginkit.APICallCounter          // enables API counting in `pvtr benchmark`
-    Evidence  *gemara.EvidenceCollector
-    Config    *config.Config
+    *gemara.EvidenceCollector          // embedded pointer, set in the loader; see Evidence below
     Owner     string                   // resolved from cfg once, here, not in steps
     Repo      string
     IsCodeRepo bool
@@ -36,8 +35,22 @@ Rules:
   `...Partial` flag so a step can return `NeedsReview` instead of `Failed`.
 - **Resolve config in the loader.** `cfg.GetString("owner")` once, into a
   field. Steps that reach into `Config` are hard to test and hide dependencies.
-- **Do not embed the loaded struct's secrets.** The payload can be written to
-  the results file. Keep tokens and clients unexported.
+- **Do not embed the loaded struct's secrets.** `--include-payload` writes the
+  payload to the results file. Keep tokens and clients unexported, and drop
+  the scaffold's `Config *config.Config` field once the loader has resolved
+  what steps need: it serializes every config var, a token included.
+
+### Evidence
+
+The SDK harvests evidence from a payload that implements `gemara.HasEvidence`,
+which only an *embedded* collector provides. Embed `*gemara.EvidenceCollector`
+and set it in the loader:
+
+- A named field (`Evidence *gemara.EvidenceCollector`) promotes nothing, so
+  evidence is silently dropped.
+- A value embed is lost too: steps receive the payload by value, so each step
+  would write into its own copy.
+- A nil pointer panics on the first harvest.
 
 ## Loader
 
@@ -47,7 +60,8 @@ func Loader(cfg *config.Config) (any, error) {
     ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
     defer cancel()
 
-    p := Payload{Config: cfg, Owner: cfg.GetString("owner"), Repo: cfg.GetString("repo")}
+    p := Payload{Owner: cfg.GetString("owner"), Repo: cfg.GetString("repo")}
+    p.EvidenceCollector = &gemara.EvidenceCollector{}
     p.APICallCounter = &pluginkit.APICallCounter{}
     client := p.APICallCounter.WrapClient(newHTTPClient(cfg.GetString("token")))
 

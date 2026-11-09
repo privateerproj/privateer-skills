@@ -50,7 +50,8 @@ observed, not just the verdict:
 return gemara.Failed, fmt.Sprintf("Branch protection not enforced: required reviews = %d", n), gemara.High
 ```
 
-For richer evidence, embed `gemara.EvidenceCollector` in the payload and call
+For richer evidence, embed `*gemara.EvidenceCollector` in the payload (a
+pointer, set in the loader; `loader.md`, "Evidence") and call
 `payload.AddEvidence(...)` from a step; the SDK copies it into the log after
 each step.
 
