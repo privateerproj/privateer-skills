@@ -20,8 +20,9 @@ type Payload struct {
     Evidence  *gemara.EvidenceCollector
     Config    *config.Config
     Owner     string                   // resolved from cfg once, here, not in steps
+    Repo      string
     IsCodeRepo bool
-    ReleasesError error                // "could not observe", distinct from "observed none"
+    ReleasesError string               // "could not observe", distinct from "observed none"; a string, since an error field serializes as {}
     cache     *payloadCache            // see lazy fetching
 }
 ```
@@ -41,6 +42,7 @@ Rules:
 ## Loader
 
 ```go
+// newHTTPClient, fetchRest and RestData are the plugin's own; only the shape matters.
 func Loader(cfg *config.Config) (any, error) {
     ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
     defer cancel()
@@ -72,8 +74,8 @@ Rules:
 - **Fail with a source-named error.** `fmt.Errorf("<source>: <what>: %w", err)`
   so the SDK's loader failure log says which system broke.
 - **Log size and shape, not content.** Payload dumps go behind `-l trace`.
-- **Independent fetches run concurrently.** `errgroup` over the sources, then
-  assemble; a single slow API should not serialize the run.
+- **Independent fetches run concurrently.** A `sync.WaitGroup` (or `errgroup`
+  if the plugin already depends on it) over the sources, then assemble; a single slow API should not serialize the run.
 - **Count API calls.** Wrap the HTTP client with `pluginkit.APICallCounter` so
   `pvtr benchmark <plugin-binary> --target <name>` can report cost per suite.
 - **Declare required vars in `main.go`**, not by checking them in the loader.
@@ -108,7 +110,8 @@ does not have.
 ## Testing the loader
 
 - Unit-test parsers and validators against fixture bytes.
-- For the fetch path, inject the HTTP client or a `makeApiCall` function and
-  use `httptest.Server`. The scanner's `data/rest_data_mock.go` is the pattern.
+- For the fetch path, have `Loader` call an inner `load(client, baseURL, ...)`
+  so tests can pass an `httptest.Server`'s client and URL; injecting the client
+  alone still points at the real API. The scanner's `data/rest_data_mock.go` is the pattern.
 - The real network is exercised by `./<bin> debug --target <name>`, not by
   `go test`.

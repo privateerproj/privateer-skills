@@ -31,7 +31,7 @@ References, loaded on demand:
 ## Preflight
 
 ```sh
-pvtr version            # need >= 0.24.1 (forwards run flags to plugins); else: brew install privateerproj/tap/pvtr
+pvtr version            # need >= 0.24.1 (a source build prints "edge"); else: brew install privateerproj/tap/pvtr
 go version              # need the Go line in the generated go.mod (1.27.3); Go fetches it unless GOTOOLCHAIN=local
 ```
 
@@ -39,6 +39,10 @@ A plugin needs a Gemara Layer 2 `ControlCatalog` (YAML or JSON, file or URL).
 If the user has none, stop and ask for one. Do not synthesize a catalog; that is
 a different task with its own review needs. A minimal valid catalog is in
 `references/plugin-anatomy.md` for smoke tests only.
+
+Run the `scripts/` helpers with `GOWORK=off` when a `go.work` sits above the
+skill directory, and pass them absolute paths: each command `cd`s into
+`scripts/` first.
 
 ## Workflow
 
@@ -58,8 +62,11 @@ typing it (see "Generate, then copy").
    cd <plugin-dir> && go mod tidy && go build ./... && go vet ./...
    ```
 
-   `generate-plugin` exits non-zero on template failure since pvtr 0.20.3, but
-   still run the build; a scaffold that does not compile is not a starting point.
+   `--service-name` becomes the plugin name, the module path's last element,
+   the binary name and the installed `local/<name>`, so use a short lowercase
+   identifier. `generate-plugin` exits non-zero on template failure since pvtr
+   0.20.3, but still run the build; a scaffold that does not compile is not a
+   starting point. Keep the code `gofmt`-clean; the generated CI lints it.
 
 2. **Fill the `main.go` stubs** per `references/plugin-anatomy.md`: the
    `AddTargetBuilder` body, and `Publisher` and `License` when the plugin will
@@ -88,7 +95,8 @@ typing it (see "Generate, then copy").
 
    Pass the directory, not one file: a plugin registers every embedded
    catalog's ids, so checking one catalog reports the others' ids as orphans.
-   `missing_in_plugin` → take the entries from a scratch scaffold ("Generate,
+   Sync proves coverage, not implementation: a fresh scaffold passes with every
+   id still on `NotImplemented`. `missing_in_plugin` → take the entries from a scratch scaffold ("Generate,
    then copy"), then back to step 4. `orphaned_in_plugin` → ask; an orphan is
    usually a typo in the id, sometimes a retired control kept for visibility.
 
@@ -97,13 +105,23 @@ typing it (see "Generate, then copy").
    ```sh
    cp example-config.yml config.yml      # fill vars for a real target; keep applicability non-empty
    go build -o <bin> . && ./<bin> debug --target <name> -l debug
-   (cd <skill-dir>/scripts && go run . run-summary --path evaluation_results/<name>/<name>.yaml)
+   log="$PWD/evaluation_results/<name>/<name>.yaml"   # absolute: the next line cds away
+   (cd <skill-dir>/scripts && go run . run-summary --path "$log")
    ```
 
-   Then install the binary into `~/.privateer/bin/`, put the same `services:`
-   block in a `config.yml`, and run `pvtr run`. Read the exit code with the
-   table in `references/plugin-anatomy.md`; `1` means assessments failed,
-   which is data, not a broken plugin.
+   `debug` exits 0 whatever the results; only the log counts. Then register the
+   binary with pvtr and run it the way users will:
+
+   ```sh
+   pvtr install --local ./<bin>          # records local/<bin> in pvtr's plugin manifest
+   pvtr run                              # config.yml must say plugin: local/<bin>
+   ```
+
+   Copying the binary into `~/.privateer/bin` is not enough; pvtr resolves
+   `plugin:` through the manifest. With `Publisher` empty, the install prints
+   a long "declares no grc.store Publisher" warning and still exits 0. Read the
+   `pvtr run` exit code with the table in `references/plugin-anatomy.md`; `1`
+   means assessments failed, which is data, not a broken plugin.
 
 8. **Done** when all of these hold. Report the EvaluationLog path and the
    `totals` map from `run-summary`; on any miss, paste the failing JSON.
@@ -145,7 +163,8 @@ re-serializes it and names it the way the plugin embeds it. Then rerun sync.
   data is `NeedsReview` (or `Unknown` for a loader defect), not `Passed` and
   not `Failed`.
 - Never infer success from `pvtr run`'s exit code alone. Parse the log.
-- Do not run `pvtr install`, `pvtr publish`, or `brew upgrade` on the user's
-  behalf. Surface the command and let them decide.
+- `pvtr install --local` on the plugin you just built is part of step 7. Do not
+  install from grc.store, `pvtr publish`, or `brew upgrade` on the user's
+  behalf; surface the command and let them decide.
 - If the installed SDK's API differs from these references, follow `go doc`
   and note the drift in the report so the skill can be updated.

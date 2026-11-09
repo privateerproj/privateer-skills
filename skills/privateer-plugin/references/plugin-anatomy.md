@@ -18,7 +18,7 @@ every run, so the scaffold changes without a pvtr release.
     evaluation_plans.go            # TypedStep, and Suite_<id>: map[requirement id] -> step chain
     reusable_steps/steps.go        # NotImplemented
   example-config.yml               # copy to config.yml to run
-  Makefile                         # build, test, vet, tidy; `make bin` moves the binary to ~/.privateer/bin
+  Makefile                         # build, test, vet, tidy, cross-platform release builds
   README.md, TESTING.md
   .github/, .goreleaser.yaml       # CI and release, copied verbatim from the templates
 ```
@@ -76,7 +76,7 @@ Three ways, in the order to use them:
 | --- | --- | --- |
 | Unit tests | `go test ./...` | Step logic against payload literals. Fast, no credentials. |
 | Plugin debug | `./<bin> debug --target <name> -l debug` | The loader against a real target, without pvtr. |
-| Full run | `pvtr run` | What users see. Binary in `~/.privateer/bin/`, services in `config.yml`. |
+| Full run | `pvtr install --local ./<bin>`, then `pvtr run` | What users see. Services in `config.yml`, with `plugin: local/<bin>`. |
 
 Config shape (`example-config.yml` is the template):
 
@@ -86,7 +86,7 @@ write-directory: evaluation_results
 output: yaml            # yaml | json | sarif | gemara
 services:
   my-target:            # --target picks this entry
-    plugin: <PluginName>
+    plugin: local/<PluginName>  # as installed; <namespace>/<PluginName> from grc.store
     policy:
       catalogs: ["<catalog id>"]
       applicability: [<category>]
