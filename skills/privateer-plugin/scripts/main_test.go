@@ -49,8 +49,8 @@ var S = map[string][]gemara.AssessmentStep{"X.C01.TR03": {NotImplemented}}
 	if got, want := r.Missing, []string{"X.C01.TR02"}; !reflect.DeepEqual(got, want) {
 		t.Errorf("missing = %v, want %v", got, want)
 	}
-	// TR03 is retired: bound but not live, so it is an orphan alongside TR09.
-	if got, want := r.Orphaned, []string{"X.C01.TR03", "X.C01.TR09"}; !reflect.DeepEqual(got, want) {
+	// TR03 is retired: not required, and bound on purpose (steps.md), so not an orphan.
+	if got, want := r.Orphaned, []string{"X.C01.TR09"}; !reflect.DeepEqual(got, want) {
 		t.Errorf("orphaned = %v, want %v", got, want)
 	}
 	if r.Synced {

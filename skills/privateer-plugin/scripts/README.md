@@ -19,8 +19,10 @@ directory; a directory's `*.yaml`/`*.yml` catalogs are checked together, since
 a multi-catalog plugin registers all of their ids.
 
 - `missing_in_plugin` — live requirement with no chain. Implement it.
-- `orphaned_in_plugin` — chain whose id the catalog does not have. Usually a
-  typo; sometimes a retired id kept for visibility, which is fine.
+- `orphaned_in_plugin` — chain whose id the catalog does not have at all.
+  Usually a typo, or an id dropped from a new catalog version. An id the
+  catalog marks `Retired` may stay bound (to a `Retired` step) and is not an
+  orphan.
 - `duplicate_ids_in_catalog`, `dynamic_keys` — cannot be verified statically.
 - `synced` — true when all four are empty. `--strict` exits 1 otherwise.
 

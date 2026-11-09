@@ -67,18 +67,19 @@ type catalog struct {
 	} `yaml:"controls"`
 }
 
-// liveRequirementIDs returns the ids a plugin must bind: every requirement not
-// in state Retired. Duplicate ids are reported so a copy-paste in the catalog
-// does not hide as a single registration.
-func liveRequirementIDs(path string) (ids []string, dupes []string, err error) {
-	ids, dupes = []string{}, []string{}
+// liveRequirementIDs returns the ids a plugin must bind (every requirement not
+// in state Retired) and the retired ids, which a plugin may keep bound to a
+// Retired step. Duplicate ids are reported so a copy-paste in the catalog does
+// not hide as a single registration.
+func liveRequirementIDs(path string) (ids, retired, dupes []string, err error) {
+	ids, retired, dupes = []string{}, []string{}, []string{}
 	b, err := os.ReadFile(path)
 	if err != nil {
-		return nil, nil, err
+		return nil, nil, nil, err
 	}
 	var c catalog
 	if err := yaml.Unmarshal(b, &c); err != nil {
-		return nil, nil, fmt.Errorf("parse %s: %w", path, err)
+		return nil, nil, nil, fmt.Errorf("parse %s: %w", path, err)
 	}
 	seen := map[string]bool{}
 	for _, ctl := range c.Controls {
@@ -88,14 +89,17 @@ func liveRequirementIDs(path string) (ids []string, dupes []string, err error) {
 				continue
 			}
 			seen[ar.ID] = true
-			if ar.State != "Retired" {
+			if ar.State == "Retired" {
+				retired = append(retired, ar.ID)
+			} else {
 				ids = append(ids, ar.ID)
 			}
 		}
 	}
 	sort.Strings(ids)
+	sort.Strings(retired)
 	sort.Strings(dupes)
-	return ids, dupes, nil
+	return ids, retired, dupes, nil
 }
 
 // ---------------- plugin ----------------
@@ -224,24 +228,25 @@ func cmdSync(args []string) int {
 // registers every catalog's ids, so checking one alone reports the rest as
 // orphans. Duplicates count within a file only; the same id in two catalog
 // versions is expected.
-func catalogLiveIDs(catPath string) (live, dupes []string, err error) {
+func catalogLiveIDs(catPath string) (live, retired, dupes []string, err error) {
 	files := []string{catPath}
 	if fi, err := os.Stat(catPath); err == nil && fi.IsDir() {
 		yml, _ := filepath.Glob(filepath.Join(catPath, "*.yml"))
 		files, _ = filepath.Glob(filepath.Join(catPath, "*.yaml"))
 		files = append(files, yml...)
 		if len(files) == 0 {
-			return nil, nil, fmt.Errorf("no *.yaml or *.yml catalogs in %s", catPath)
+			return nil, nil, nil, fmt.Errorf("no *.yaml or *.yml catalogs in %s", catPath)
 		}
 	}
 	seen := map[string]bool{}
-	live, dupes = []string{}, []string{}
+	live, retired, dupes = []string{}, []string{}, []string{}
 	for _, f := range files {
-		ids, d, err := liveRequirementIDs(f)
+		ids, ret, d, err := liveRequirementIDs(f)
 		if err != nil {
-			return nil, nil, err
+			return nil, nil, nil, err
 		}
 		dupes = append(dupes, d...)
+		retired = append(retired, ret...)
 		for _, id := range ids {
 			if !seen[id] {
 				seen[id] = true
@@ -250,12 +255,13 @@ func catalogLiveIDs(catPath string) (live, dupes []string, err error) {
 		}
 	}
 	sort.Strings(live)
+	sort.Strings(retired)
 	sort.Strings(dupes)
-	return live, dupes, nil
+	return live, retired, dupes, nil
 }
 
 func buildSync(catPath, pluginDir string) (*syncReport, error) {
-	live, dupes, err := catalogLiveIDs(catPath)
+	live, retired, dupes, err := catalogLiveIDs(catPath)
 	if err != nil {
 		return nil, err
 	}
@@ -267,7 +273,7 @@ func buildSync(catPath, pluginDir string) (*syncReport, error) {
 		Catalog:       catPath,
 		Plugin:        pluginDir,
 		Missing:       diff(live, reg),
-		Orphaned:      diff(reg, live),
+		Orphaned:      diff(reg, append(append([]string{}, live...), retired...)), // a bound retired id is kept on purpose
 		DuplicateIDs:  dupes,
 		DynamicKeys:   dynamic,
 		Registrations: regs,
