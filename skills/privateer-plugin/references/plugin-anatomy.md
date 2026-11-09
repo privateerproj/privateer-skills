@@ -21,6 +21,7 @@ every run, so the scaffold changes without a pvtr release.
   Makefile                         # build, test, vet, tidy, cross-platform release builds
   README.md, TESTING.md
   .github/, .goreleaser.yaml       # CI and release, copied verbatim from the templates
+                                   # (template-smoke-test.yaml is the templates repo's own CI; inert here, safe to delete)
 ```
 
 Every requirement id in the catalog appears in `Suite_<id>` bound to
@@ -51,8 +52,9 @@ Rules that follow from the SDK:
   the log and the benchmark report.
 - All steps in one registration share one payload type. A second payload type
   needs a second registration call.
-- `ForAllCatalogs` is right when one implementation per id holds across catalog
-  versions. Ids a given catalog does not declare are simply never run.
+- `ForAllCatalogs` is right when one map serves several catalogs (different
+  catalog ids). Ids a given catalog does not declare are simply never run. A
+  binary embeds one version per catalog id; see SKILL.md, "Catalog changed".
 - `RequiredVars` lists config `vars` the loader cannot work without. The SDK
   refuses to run when one is missing, so a step never sees a half-built payload.
 - Exit with `shared.InternalError` on wiring failures, not a bare `1`.
@@ -121,7 +123,10 @@ Never decide "done" from 0 or 1 alone; parse the log with `scripts run-summary`.
 
 ## Minimal smoke-test catalog
 
-For proving the toolchain, not for shipping. Mirrors the templates' own CI.
+For proving the toolchain, and the shape to follow when writing a catalog from
+requirements the user stated (SKILL.md, "Preflight"). Mirrors the templates'
+own CI. `version` names the embedded file (`catalog_smoke_test_1_0_0.yaml`);
+without it the file ends in `_`.
 
 ```yaml
 title: Smoke Test Catalog
@@ -129,6 +134,7 @@ metadata:
   id: smoke-test
   type: ControlCatalog
   gemara-version: v1.0.0
+  version: 1.0.0
   description: Minimal catalog used to verify a plugin compiles and runs.
   author:
     id: example

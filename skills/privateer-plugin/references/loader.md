@@ -22,6 +22,7 @@ type Payload struct {
     Repo      string
     IsCodeRepo bool
     ReleasesError string               // "could not observe", distinct from "observed none"; a string, since an error field serializes as {}
+    CollectedAt   string               // RFC 3339, stamped once; evidence entries reuse it
     cache     *payloadCache            // see lazy fetching
 }
 ```
@@ -33,6 +34,11 @@ Rules:
 - **Record failure to observe separately from the observation.** A nil slice
   means "none found" only if the fetch succeeded; keep an `...Error` field or a
   `...Partial` flag so a step can return `NeedsReview` instead of `Failed`.
+- **A target that does not exist is a loader error; a source that cannot be
+  read is a field.** A configured path or URL that is missing or malformed is
+  a config problem: return an error. A target that exists but whose parts
+  cannot be read (a file that will not parse, an endpoint that needs a token)
+  sets the matching `...Error` field with the reason.
 - **Resolve config in the loader.** `cfg.GetString("owner")` once, into a
   field. Steps that reach into `Config` are hard to test and hide dependencies.
 - **Do not embed the loaded struct's secrets.** `--include-payload` writes the
@@ -51,6 +57,11 @@ and set it in the loader:
 - A value embed is lost too: steps receive the payload by value, so each step
   would write into its own copy.
 - A nil pointer panics on the first harvest.
+
+go-gemara's own doc example embeds the collector by value and passes a
+pointer payload. The SDK passes the payload by value, so follow this page, not
+that example. `steps.md`, "Messages are evidence", shows a complete
+`gemara.Evidence` entry; recording evidence is optional.
 
 ## Loader
 
@@ -83,6 +94,12 @@ Rules:
 
 - **Bounded.** Every outbound call runs under a context with a timeout. Retry
   only idempotent reads, with a cap; the scanner's `data/retry.go` is the shape.
+  Under a hard rate limit (unauthenticated GitHub: 60 an hour) do not retry;
+  put the reset time from `X-RateLimit-Reset` in the error.
+- **Credentials are optional unless `RequiredVars` says otherwise.** When data
+  needs a token the user did not supply, look for an endpoint that exposes it
+  without one; failing that, set the `...Error` field to "requires a token" so
+  the step returns `NeedsReview`.
 - **Validate before returning.** A 200 with an empty required field is a loader
   error. Returning a half-built payload turns loader bugs into false `Failed`s.
 - **Fail with a source-named error.** `fmt.Errorf("<source>: <what>: %w", err)`
@@ -127,5 +144,8 @@ does not have.
 - For the fetch path, have `Loader` call an inner `load(client, baseURL, ...)`
   so tests can pass an `httptest.Server`'s client and URL; injecting the client
   alone still points at the real API. The scanner's `data/rest_data_mock.go` is the pattern.
+- Apply client policy that matters (redirect handling, TLS floor, auth header)
+  inside `load()`, not only where the production client is built:
+  `srv.Client()` replaces that client, so tests would skip the policy.
 - The real network is exercised by `./<bin> debug --target <name>`, not by
   `go test`.

@@ -1,6 +1,6 @@
 ---
 name: privateer-plugin
-description: Build or extend a Privateer plugin — a Go binary that evaluates a target against a Gemara Layer 2 control catalog and emits a Gemara EvaluationLog through `pvtr run`. Use when the user says "write a Privateer plugin", "pvtr plugin", "implement the assessment steps for <catalog>", "add a step for <requirement id>", "wire the data loader", or wants a plugin that compiles, tests, and runs idiomatically against the current privateer-sdk. Not for authoring or evolving catalogs, reading existing evaluation logs, or unrelated Go work.
+description: Build or extend a Privateer plugin — a Go binary that evaluates a target against a Gemara Layer 2 control catalog and emits a Gemara EvaluationLog through `pvtr run`. Use when the user says "write a Privateer plugin", "pvtr plugin", "implement the assessment steps for <catalog>", "add a step for <requirement id>", "wire the data loader", or wants a plugin that compiles, tests, and runs idiomatically against the current privateer-sdk. Also covers updating a plugin when its catalog gains a new version. Not for designing a catalog's controls, reading existing evaluation logs, or unrelated Go work.
 ---
 
 # privateer-plugin
@@ -36,9 +36,14 @@ go version              # need at least the go line in the generated go.mod; Go 
 ```
 
 A plugin needs a Gemara Layer 2 `ControlCatalog` (YAML or JSON, file or URL).
-If the user has none, stop and ask for one. Do not synthesize a catalog; that is
-a different task with its own review needs. A minimal valid catalog is in
-`references/plugin-anatomy.md` for smoke tests only.
+If the user has none:
+
+- If they state the requirements themselves (what each must check), write them
+  into a catalog shaped like the minimal one in `references/plugin-anatomy.md`:
+  keep their wording, give every requirement `applicability`, and set
+  `metadata.version`. Show the YAML and get a yes before scaffolding.
+- Otherwise stop and ask. Do not invent requirements or wording; designing
+  controls is a different task with its own review needs.
 
 Run the `scripts/` helpers with `GOWORK=off` when a `go.work` sits above the
 skill directory, and pass them absolute paths: each command `cd`s into
@@ -46,8 +51,9 @@ skill directory, and pass them absolute paths: each command `cd`s into
 
 ## Workflow
 
-Steps 1 and 2 are for a new plugin. For an existing plugin, start at step 3 and
-never run `generate-plugin` over it: it overwrites every hand-edited file.
+Steps 1 and 2 are for a new plugin. For an existing plugin whose catalog
+changed, start at "Catalog changed" below; otherwise start at step 3. Never run
+`generate-plugin` over an existing plugin: it overwrites every hand-edited file.
 Anything the generator can write, take from a scratch scaffold instead of
 typing it (see "Generate, then copy").
 
@@ -120,14 +126,19 @@ typing it (see "Generate, then copy").
 
    Copying the binary into `~/.privateer/bin` is not enough; pvtr resolves
    `plugin:` through the manifest. With `Publisher` empty, the install prints
-   a long "declares no grc.store Publisher" warning, skips catalog install, and
-   exits 0. That is harmless for embedded catalogs (the scaffold); a plugin
+   a "declares no grc.store Publisher" warning followed by the plugin's whole
+   `publish-manifest` usage text, skips catalog install, and exits 0. It looks
+   like a crash; it is not. That is harmless for embedded catalogs (the scaffold); a plugin
    that declares grc.store catalogs with `AddCatalogs` must set `Publisher`
    first, or `pvtr run` will not find them. Read the
    `pvtr run` exit code with the table in `references/plugin-anatomy.md`; `1`
    means assessments failed, which is data, not a broken plugin. `pvtr run`
    writes to a lowercased `evaluation_results/<name>/` path; see
-   `references/plugin-anatomy.md`.
+   `references/plugin-anatomy.md`. The console line
+   `> <suite>: N Passed, N Warnings, N Failed, N Possible` counts controls, not
+   requirements: `Warnings` is every control neither passed nor failed (Not
+   Applicable included, which can log at ERROR level) and `Possible` is the
+   control count. Trust `run-summary`, not that line.
 
 8. **Done** when all of these hold. Report the EvaluationLog path and the
    `totals` map from `run-summary`; on any miss, paste the failing JSON.
@@ -152,11 +163,43 @@ pvtr generate-plugin --source-path <catalog> --service-name <Service> \
 | Task | Take from `$scratch` |
 | --- | --- |
 | Add a catalog | `data/catalogs/catalog_*.yaml` into the plugin's `data/catalogs/`; the `Suite_<id>` block from `evaluation_plans/evaluation_plans.go`; the `AddEvaluationSuiteTyped` call from `main.go`; the `applicability` list from `example-config.yml` |
-| New catalog version, or `missing_in_plugin` | The catalog file as above; only the missing ids' entries from `Suite_<id>`, merged into the existing map |
+| New catalog version | Follow "Catalog changed" below |
+| `missing_in_plugin` | Only the missing ids' entries from `Suite_<id>`, merged into the existing map |
 | Upgrade an older scaffold | `diff -r "$scratch" <plugin-dir>`, then port the wiring the plugin lacks; keep its steps, loader and catalogs |
 
 Copy the generated catalog file rather than the source: the generator
 re-serializes it and names it the way the plugin embeds it. Then rerun sync.
+
+### Catalog changed
+
+A binary embeds one version per catalog id; two files with the same id stop
+the plugin at startup with `duplicate catalog id found`. Sync compares ids
+only, so a requirement whose text changed under the same id is invisible to it.
+
+1. Scaffold the new version into `$scratch` as above, then see which ids were
+   added or dropped before touching the plugin:
+
+   ```sh
+   (cd <skill-dir>/scripts && go run . sync \
+       --catalog "$scratch"/data/catalogs --plugin <plugin-dir>)
+   ```
+
+2. Diff the requirement text of the ids both versions share:
+
+   ```sh
+   diff <plugin-dir>/data/catalogs/catalog_<id>_<old>.yaml \
+        "$scratch"/data/catalogs/catalog_<id>_<new>.yaml
+   ```
+
+   For every changed `text`, reread the bound step against the new wording and
+   change the step and its tests where the meaning moved. A step that passes
+   sync and tests can still enforce the old rule.
+3. Replace the old catalog file with the new one (`git rm` the old file).
+4. Merge the added ids' entries from `$scratch`'s `Suite_<id>`. A requirement
+   now in state `Retired` stays in the map, bound to a `Retired` step
+   (`references/steps.md`). An id gone from the catalog shows up as
+   `orphaned_in_plugin`; ask before deleting it.
+5. Back to step 4 of the workflow for the new steps, then steps 5 to 8.
 
 ## Guardrails
 

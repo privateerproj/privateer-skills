@@ -28,9 +28,12 @@ reports as review-needed, which is correct.
 
 Two consequences:
 
-- **Order chains from "is the data there" to "is the value acceptable".** A
-  scope guard (`IsCodeRepo`, `IsActive`) goes first so an inapplicable target
-  halts before a substantive step fails it for the wrong reason.
+- **Put scope guards first.** A guard (`IsCodeRepo`, `HasDeployments`)
+  returns `NotApplicable` so an inapplicable target halts before a substantive
+  step fails it for the wrong reason.
+- **A `NeedsReview` guard protects nothing.** It does not halt, so the next
+  step still runs on the missing data. Every step that reads a field checks
+  that field's `...Error` itself; a shared helper keeps that to one line.
 - **Absent data is never `Failed`.** "No SECURITY.md found" is `Failed` only if
   the loader positively listed the tree; "could not list the tree" is
   `NeedsReview` with the reason.
@@ -50,10 +53,30 @@ observed, not just the verdict:
 return gemara.Failed, fmt.Sprintf("Branch protection not enforced: required reviews = %d", n), gemara.High
 ```
 
-For richer evidence, embed `*gemara.EvidenceCollector` in the payload (a
-pointer, set in the loader; `loader.md`, "Evidence") and call
-`payload.AddEvidence(...)` from a step; the SDK copies it into the log after
-each step.
+Structured evidence is optional; a message carrying the observed value is
+the floor. Record evidence when a reviewer needs the raw data (a list of
+offending files, a header value) rather than a sentence. Embed
+`*gemara.EvidenceCollector` in the payload (a pointer, set in the loader;
+`loader.md`, "Evidence") and add entries from a step; the SDK copies them into
+the log after each step:
+
+```go
+func record(p data.Payload, kind, desc string, observed any) {
+    if p.EvidenceCollector == nil { // payload literals in tests
+        return
+    }
+    p.AddEvidence(gemara.Evidence{
+        Id:          kind,                          // unique within the step
+        Type:        gemara.EvidenceType(kind),     // free-form category; go-gemara defines no constants
+        CollectedAt: gemara.Datetime(p.CollectedAt), // RFC 3339, stamped once by the loader
+        Payload:     observed,                      // the raw value; payload or Source is required
+        Description: desc,
+    })
+}
+```
+
+Leave `Source` empty: it cites an artifact by mapping reference, which an
+evaluation plugin rarely has.
 
 ## Layout and naming
 
@@ -67,15 +90,19 @@ evaluation_plans/
 
 - Step names are exported verb phrases that read as the claim they check:
   `BranchProtectionPreventsDeletion`, `ReleasesAreSignedOrAttested`.
-- Keep one implementation per requirement id across catalog versions. If a
-  requirement's meaning changes, the catalog gives it a new id; bind that.
+- Keep one implementation per requirement id. A catalog should give a
+  requirement a new id when its meaning changes, but not every catalog does,
+  and sync cannot tell; diff the text when the catalog changes (SKILL.md,
+  "Catalog changed").
 - A retired id stays in the map bound to `reusable_steps.Retired` with a
-  comment saying which version retired it. Do not delete it.
+  comment saying which version retired it. Do not delete it. The scaffold has
+  no `Retired`; add it beside `NotImplemented`, returning `NotRun` and
+  `"Retired in <version>"`.
 - Placeholders return `NotRun`:
 
   ```go
   func NotImplemented(p data.Payload) (gemara.Result, string, gemara.ConfidenceLevel) {
-      return gemara.NotRun, "Not implemented", 0
+      return gemara.NotRun, "Not implemented", gemara.Undetermined
   }
   ```
 
@@ -122,6 +149,9 @@ func TestHasContributionGuide(t *testing.T) {
 ```
 
 Every step gets at least the pass case, the fail case, and the absent-data
-case. If a step reads through a lazily fetched field, inject the fetcher (the
+case. Call the step function directly. A family package and its tests must not
+import `evaluation_plans` (it imports them: an import cycle), so spell out
+`func(data.Payload) (gemara.Result, string, gemara.ConfidenceLevel)` if a test
+table needs the type. If a step reads through a lazily fetched field, inject the fetcher (the
 scanner passes `makeApiCall` as an optional argument) and use `httptest` rather
 than the network.
