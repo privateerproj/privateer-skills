@@ -198,14 +198,21 @@ only, so a requirement whose text changed under the same id is invisible to it.
    ```
 
    For every changed `text`, reread the bound step against the new wording and
-   change the step and its tests where the meaning moved. A step that passes
-   sync and tests can still enforce the old rule.
-3. Replace the old catalog file with the new one (`git rm` the old file).
+   change the step and its tests where the meaning moved; extend the loader
+   first if the payload lacks the data the new wording needs. A step that
+   passes sync and tests can still enforce the old rule. A fixture that the
+   old rule passes and the new rule fails proves the change.
+3. Copy the new catalog file in, then `git rm` the old one (in that order:
+   removing the only file first deletes `data/catalogs/`). The generator
+   re-serializes the catalog and may drop or rename fields such as `title`;
+   that is expected.
 4. Merge the added ids' entries from `$scratch`'s `Suite_<id>`. A requirement
    now in state `Retired` stays in the map, bound to a `Retired` step
-   (`references/steps.md`). An id gone from the catalog shows up as
-   `orphaned_in_plugin`; ask before deleting it.
+   (`references/steps.md`); sync accepts it. An id gone from the catalog
+   entirely shows up as `orphaned_in_plugin`; ask before deleting it.
 5. Back to step 4 of the workflow for the new steps, then steps 5 to 8.
+   Rerun `pvtr install --local` after rebuilding: `pvtr run` runs the
+   installed copy, not the binary in the plugin directory.
 
 ## Guardrails
 

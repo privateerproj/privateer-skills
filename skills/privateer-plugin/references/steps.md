@@ -111,7 +111,11 @@ evaluation_plans/
 
 ## Anti-patterns
 
-- One step that does everything. Split so `steps-executed` shows where it stopped.
+- One step that does everything. Split so `steps-executed` shows where it
+  stopped. The halt rule cuts both ways: after a `Failed` step, later steps in
+  the chain never run, so their findings are lost. Split by precondition
+  (data present, then value acceptable); keep independent failure modes of one
+  requirement in one step that lists every violation.
 - Network or filesystem access in a step. That belongs in the loader; see
   `loader.md` for lazy fetching if the data is expensive.
 - A payload type assertion in every step. The typed registration does it once.
@@ -149,7 +153,8 @@ func TestHasContributionGuide(t *testing.T) {
 ```
 
 Every step gets at least the pass case, the fail case, and the absent-data
-case. Call the step function directly. A family package and its tests must not
+case. Call the step function directly; to assert recorded evidence, build the
+payload with a collector and read `p.GetEvidence()`. A family package and its tests must not
 import `evaluation_plans` (it imports them: an import cycle), so spell out
 `func(data.Payload) (gemara.Result, string, gemara.ConfidenceLevel)` if a test
 table needs the type. If a step reads through a lazily fetched field, inject the fetcher (the
